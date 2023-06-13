@@ -1,0 +1,160 @@
+﻿<Window x:Class="ClassTimetableToSyllabus.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ClassTimetableToSyllabus"
+        d:DataContext="{d:DesignInstance Type=local:VM}"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="500" Width="900">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="200"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0">
+            <TextBlock Text="{Binding PdfName}" Background="Black" Foreground="White"/>
+            <Button Click="PDF_Load">PDFを開く</Button>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right">でグループ化</TextBlock>
+                <TextBox Text="{Binding PdfGroupingText}"/>
+            </DockPanel>
+            <Button Grid.Column="2" Click="PDF_Split_Button">実行</Button>
+
+            <TextBlock Background="Black" Foreground="White">ファイル・科目名</TextBlock>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding PdfNameGroupingText}"/>
+                <TextBlock Grid.Column="1">を超える位置の単語を追加</TextBlock>
+            </Grid>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto"/>
+                    <RowDefinition Height="auto"/>
+                </Grid.RowDefinitions>
+                <CheckBox Grid.Column="0" Grid.Row="0" IsChecked="{Binding IsExecuteRemoveStr}"/>
+                <TextBox Grid.Column="1" Grid.Row="0" Text="{Binding RemoveTarget}"/>
+                <TextBlock Grid.Column="2" Grid.Row="0">を含む候補を除外</TextBlock>
+                <CheckBox Grid.Column="0" Grid.Row="1" IsChecked="{Binding IsExecuteRemoveDigits}"/>
+                <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding IntDigitsExclusion}"/>
+                <TextBlock Grid.Column="2" Grid.Row="1">桁の整数を含む候補を除外</TextBlock>
+            </Grid>
+            <Button Grid.Column="2" Click="Name_Execute_Button">実行</Button>
+
+            <TextBlock Background="Black" Foreground="White">開講期間</TextBlock>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto"/>
+                    <RowDefinition Height="auto"/>
+                    <RowDefinition Height="auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Column="0" Grid.Row="0" Grid.RowSpan="2">位置が</TextBlock>
+                <TextBox Grid.Column="1" Grid.Row="0" Text="{Binding PeriodOverText}"/>
+                <TextBlock Grid.Column="2" Grid.Row="0">未満</TextBlock>
+                <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding PeriodUnderText}"/>
+                <TextBlock Grid.Column="2" Grid.Row="1">超過</TextBlock>
+                <TextBlock Grid.Column="0" Grid.Row="2">左から</TextBlock>
+                <TextBox Grid.Column="1" Grid.Row="2" Text="{Binding PeriodIndexText}"/>
+                <TextBlock  Grid.Column="2" Grid.Row="2">番目</TextBlock>
+            </Grid>
+            <Button Click="Period_Execute_Button">実行</Button>
+            
+            <TextBlock Background="Black" Foreground="White">ナンバリング</TextBlock>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Grid.Row="0">位置が</TextBlock>
+                <TextBox Grid.Column="1" Grid.Row="0" Text="{Binding CodeUnderText}"/>
+                <TextBlock Grid.Column="2" Grid.Row="0">超過</TextBlock>
+            </Grid>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right">を含む単語を追加</TextBlock>
+                <TextBox Text="{Binding CodeAddText}"/>
+            </DockPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" IsChecked="{Binding IsCodeJoin}"/>
+                <TextBox Grid.Column="1" Text="{Binding CodeJoinChar}"/>
+                <TextBlock Grid.Column="2">で終わる候補を次単語と結合</TextBlock>
+            </Grid>
+            <CheckBox IsChecked="{Binding IsCodeContainRemove}">他候補に含まれる候補を除外</CheckBox>
+            <Button Click="Code_Execute_Button">実行</Button>
+
+            <Button Click="PDF_Output_Button">グループ毎にPDF出力</Button>
+            <Button Click="JSON_Output_Button">JSON出力</Button>
+
+            <Button Click="PDF_Unload">PDFを閉じる</Button>
+        </StackPanel>
+        <DockPanel Grid.Column="1">
+            <Grid DockPanel.Dock="Top"> <!--疑似ヘッダー-->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/><!--スクロールバー分-->
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" HorizontalAlignment="Center">名前</TextBlock>
+                <TextBlock Grid.Column="1" HorizontalAlignment="Center">開講期間</TextBlock>
+                <TextBlock Grid.Column="2" HorizontalAlignment="Center">ナンバリング</TextBlock>
+                <TextBlock Grid.Column="3" HorizontalAlignment="Center">ページ数</TextBlock>
+                <TextBlock Grid.Column="4" HorizontalAlignment="Center">詳細</TextBlock>
+            </Grid>
+            <ListBox x:Name="KamokuList" ItemsSource="{Binding Syllabus}" HorizontalContentAlignment="Stretch" SelectionMode="Multiple" ScrollViewer.VerticalScrollBarVisibility="Visible">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3*"/>
+                                <ColumnDefinition Width="3*"/>
+                                <ColumnDefinition Width="3*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="0" ItemsSource="{Binding NameList, UpdateSourceTrigger=PropertyChanged, Mode=OneWay}" SelectedIndex="{Binding NameIndex, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                            <TextBox Grid.Column="1" Text="{Binding Period}"/>
+                            <ListView Grid.Column="2" ItemsSource="{Binding Numbering}"/>
+                            <TextBlock Grid.Column="3" Text="{Binding PageCount}" TextAlignment="Center"/>
+                            <Button Grid.Column="4" Command="{Binding EditCommand}" CommandParameter="{Binding}">編集</Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+        <StackPanel Grid.Column="2">
+            <ListView ItemsSource="{Binding ElementName=KamokuList, Path=SelectedItems, Mode=OneWay}">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Path=Name}"/>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock>←で選択中のアイテムについて</TextBlock>
+            <Button Command="{Binding NameJoinCommand}" CommandParameter="{Binding ElementName=KamokuList, Path=SelectedItems, Mode=OneWay}">
+                spaceで名前候補を連結,追加
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,48 @@
+﻿<Window x:Class="ClassTimetableToSyllabus.KamokuWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ClassTimetableToSyllabus"
+        d:DataContext="{d:DesignInstance Type=local:Kamoku}"
+        mc:Ignorable="d"
+        Title="KamokuWindow" Height="450" Width="400">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0">
+            <TextBlock TextAlignment="Center" Background="Black" Foreground="White">名前</TextBlock>
+            <ListView x:Name="NameListView" ItemsSource="{Binding NameList}"/>
+            <Button Command="{Binding RemoveNameCommand}" CommandParameter="{Binding ElementName=NameListView, Path=SelectedItem}">選択要素を削除</Button>
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Command="{Binding AddNameCommand}" CommandParameter="{Binding ElementName=AddNameText, Path=Text}">を追加</Button>
+                <TextBox x:Name="AddNameText"/>
+            </DockPanel>
+
+            <TextBlock TextAlignment="Center" Background="Black" Foreground="White">ナンバリング</TextBlock>
+            <ListView x:Name="CodeListView" ItemsSource="{Binding Numbering}"/>
+            <Button Command="{Binding RemoveCodeCommand}" CommandParameter="{Binding ElementName=CodeListView, Path=SelectedItem}">選択要素を削除</Button>
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Command="{Binding AddCodeCommand}" CommandParameter="{Binding ElementName=AddCodeText, Path=Text}">を追加</Button>
+                <TextBox x:Name="AddCodeText"/>
+            </DockPanel>
+
+            <TextBlock TextAlignment="Center" Background="Black" Foreground="White">ページ数</TextBlock>
+            <TextBox Text="{Binding PageCount}"/>
+        </StackPanel>
+        <DockPanel Grid.Column="1">
+            <ComboBox x:Name="PageList" DockPanel.Dock="Top">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Page}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible">
+                <TextBlock Text="{Binding ElementName=PageList, Path=SelectedItem.Text}" TextWrapping="Wrap"/>
+            </ScrollViewer>
+        </DockPanel>
+    </Grid>
+</Window>
