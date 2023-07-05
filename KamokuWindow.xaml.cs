@@ -1,10 +1,16 @@
-﻿using System.Collections.ObjectModel;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows;
+using System.Xml.Linq;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Writer;
 
@@ -28,6 +34,8 @@ namespace ClassTimetableToSyllabus
     {
         public Kamoku(PdfDocument pd)
         {
+            NameList = new(nameList);
+
             EditCommand = new((kamoku) => {
                 string[] texts = new string[PageCount];
                 for (int i = 0; i < texts.Length; i++)
@@ -37,19 +45,20 @@ namespace ClassTimetableToSyllabus
                 if (kamoku is Kamoku k) new KamokuWindow(k, texts).Show();
             });
             RemoveNameCommand = new(name => {
-                if (name is string n) NameList.Remove(n);
-                NameIndex = NameList.Select((n, i) => (n.Length, i)).OrderByDescending(e => e.Length).FirstOrDefault().i;
+                if (name is string n) nameList.Remove(n);
+                NameIndex = nameList.Select((n, i) => (n.Length, i)).OrderByDescending(e => e.Length).FirstOrDefault().i;
             });
             AddNameCommand = new(name => {
-                if (name is string n) NameList.Add(n);
-                NameIndex = NameList.Count - 1;
+                if (name is string n) nameList.Add(n);
+                NameIndex = nameList.Count - 1;
             });
             RemoveCodeCommand = new(code => { if (code is string c) Numbering.Remove(c); });
             AddCodeCommand = new(code => { if (code is string c) Numbering.Add(c); });
         }
 
         [JsonIgnore]
-        public ObservableCollection<string> NameList { get; } = new();
+        public ReadOnlyObservableCollection<string> NameList { get; }
+        private readonly ObservableCollection<string> nameList = new();
 
         private int nameIndex = 0;
         [JsonIgnore]
@@ -64,27 +73,27 @@ namespace ClassTimetableToSyllabus
             }
         }
         public string Name => NameList[NameIndex];
+
+        private string fileName = "";
         public string FileName { 
             get 
             {
-                string n = Name;
-                foreach(char c in Path.GetInvalidFileNameChars())
+                if (string.IsNullOrWhiteSpace(fileName))
                 {
-                    n = n.Replace(c, '_');
+                    fileName = Name.GetAvailableFileName();
                 }
-                return n;
+                return fileName;
             } 
-        }
-
+            set => fileName = value; }
 
         public void ClearName()
         {
-            NameList.Clear();
+            nameList.Clear();
             NotifyPropertyChanged(nameof(NameList));
         }
         public void AddName(string name)
         {
-            NameList.Add(name);
+            nameList.Add(name);
             if (Name.Length < name.Length)
             {
                 NameIndex = NameList.Count - 1;
@@ -106,6 +115,7 @@ namespace ClassTimetableToSyllabus
         }
 
         private string period = string.Empty;
+
         public string Period
         {
             get => period; set
@@ -156,4 +166,126 @@ namespace ClassTimetableToSyllabus
         public event PropertyChangedEventHandler? PropertyChanged;
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    public class Syllabus : ICollection<Kamoku>
+    {
+        public ReadOnlyObservableCollection<Kamoku> Kamokus { get; }
+        private readonly ObservableCollection<Kamoku> kamokus = new();
+
+        public Syllabus() 
+        {
+            Kamokus = new(kamokus);
+        }
+
+        public void Add(Kamoku item) => kamokus.Add(item);
+
+        public void SetFileName(FileNameConfig config)
+        {
+            switch (config)
+            {
+                case FileNameConfig.Name:
+                    for (int i = 0; i < kamokus.Count; i++)
+                    {
+                        kamokus[i].FileName = kamokus[i].Name.GetAvailableFileName();
+
+                        int duplicateCount = 0;
+                        for (int cnt = 0; cnt < i; cnt++)
+                        {
+                            if (kamokus[cnt].FileName == kamokus[i].FileName)
+                            {
+                                duplicateCount++;
+                                kamokus[i].FileName += "_" + duplicateCount;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                case FileNameConfig.Number:
+                    HashSet<int> hashs = new();
+                    for (int i = 0; i < kamokus.Count; i++)
+                    {
+                        int hash;
+                        int cnt = 0;
+                        do
+                        {
+                            hash = kamokus[i].Name.GetHashCode() + cnt;
+                            cnt++;
+                        } while (!hashs.Add(hash));
+                        kamokus[i].FileName = hash.ToString("X8");
+                    }
+                    break;
+                case FileNameConfig.Index:
+                    if(kamokus.Count != 0)
+                    {
+                        int digit = (int)Math.Log10(kamokus.Count) + 1;
+                        for (int i = 0; i < kamokus.Count; i++)
+                        {
+                            kamokus[i].FileName = i.ToString("D" + digit.ToString());
+                        }
+                    }
+                    break;
+            }
+        }
+
+        public void JsonOutput(Stream stream)
+        {
+            JsonSerializer.Serialize(stream, kamokus, new JsonSerializerOptions()
+            {
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                WriteIndented = true
+            });
+        }
+
+        public void JsonOutput(Stream stream, FileNameConfig config)
+        {
+            SetFileName(config);
+            JsonOutput(stream);
+        }
+
+        public void PdfOutput(PdfDocument pdf, string dirName)
+        {
+            foreach (Kamoku kamoku in kamokus) kamoku.OutputPDF(pdf, dirName);
+        }
+
+        public void PdfOutput(PdfDocument pdf, string dirName, FileNameConfig config)
+        {
+            SetFileName(config);
+            PdfOutput(pdf, dirName);
+        }
+
+        public int Count => kamokus.Count;
+        public bool IsReadOnly => false;
+        public void Clear() => kamokus.Clear();
+        public bool Contains(Kamoku item) => kamokus.Contains(item);
+        public void CopyTo(Kamoku[] array, int arrayIndex) => kamokus.CopyTo(array, arrayIndex);
+        public bool Remove(Kamoku item) => kamokus.Remove(item);
+        public IEnumerator<Kamoku> GetEnumerator() => kamokus.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => kamokus.GetEnumerator();
+    }
+
+    public enum FileNameConfig
+    {
+        Name = 0,
+        Number = 1,
+        Index = 2
+    }
+
+    public static class Extend
+    {
+        public static string GetItemName(this FileNameConfig config) => config switch
+        {
+            FileNameConfig.Name => "科目名",
+            FileNameConfig.Number => "数値",
+            FileNameConfig.Index => "連番",
+            _ => throw new NotImplementedException()
+        };
+
+        internal static string GetAvailableFileName(this string str)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars()) str = str.Replace(c, '_');
+            return str;
+        }
+    }
 }
