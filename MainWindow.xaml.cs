@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -7,8 +7,6 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Encodings.Web;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
@@ -30,212 +28,19 @@ namespace ClassTimetableToSyllabus
 
         private readonly VM VM = new();
 
-        private void PDF_Load(object sender, RoutedEventArgs e)
+        private void Select_Alpha_Kamoku(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog fileDialog = new()
+            KamokuList.SelectedItems.Clear();
+            for (int i = 0; i < KamokuList.Items.Count; i++)
             {
-                Filter = "PDF|*.pdf"
-            };
-
-            if (fileDialog.ShowDialog() == true)
-            {
-                VM.Syllabus.Clear();
-                VM.PdfDocument = PdfDocument.Open(fileDialog.FileName);
-                VM.PdfName = Path.GetFileNameWithoutExtension(fileDialog.FileName);
-            }
-        }
-
-        private void PDF_Split_Button(object sender, RoutedEventArgs e)
-        {
-            VM.Syllabus.Clear();
-            int cnt = 1;
-            foreach (Page page in VM.PdfDocument.GetPages())
-            {
-                foreach (Word word in page.GetWords())
+                if (KamokuList.Items[i] is Kamoku kamoku)
                 {
-                    if (word.Text.Contains(VM.PdfGroupingText))
+                    if (Regex.IsMatch(kamoku.Name, "^[a-zA-Z0-9 ]*$"))
                     {
-                        VM.Syllabus.Add(new(VM.PdfDocument) { StartPage = cnt });
-                        break;
-                    }
-                }
-                if (VM.Syllabus.Count > 0)
-                {
-                    VM.Syllabus[^1].PageCount++;
-                }
-                // using StreamWriter stream = new(cnt.ToString() + ".txt", new FileStreamOptions() { Mode = FileMode.Create, Access = FileAccess.Write });
-                // stream.WriteLine(page.Text);
-
-                cnt++;
-            }
-        }
-
-        // 科目名を抜きたい
-        private void Name_Execute_Button(object sender, RoutedEventArgs e)
-        {
-            for (int i = 0; i < VM.Syllabus.Count; i++)
-            {
-                VM.Syllabus[i].ClearName();
-
-                Page page = VM.Syllabus[i].GetPage(VM.PdfDocument, 0);
-
-                if (!page.Text.Contains(VM.PdfNameGroupingText)) continue;
-                var hLocation = page.GetWords().Where(w => w.Text.Contains(VM.PdfNameGroupingText)).First().Letters[0].GlyphRectangle.Top;
-                foreach (Word word in page.GetWords())
-                {
-                    if (word.Letters[0].Location.Y <= hLocation) continue;
-
-                    // "講義科目名称："など'：'を含む要素の除去
-                    if (VM.IsExecuteRemoveStr)
-                    {
-                        bool flag = false;
-                        foreach(char c in VM.RemoveTargets)
-                        {
-                            flag |= word.Text.Contains(c);
-                        }
-                        if (flag) continue;
-                    }
-                    // 科目コードの除去
-                    if (VM.IsExecuteRemoveDigits)
-                    {
-                        Regex regex = new($@"[0-9]{{{VM.IntDigitsExclusion}}}");
-                        if (regex.IsMatch(word.Text)) continue;
-                    }
-                    VM.Syllabus[i].AddName(word.Text);
-                }
-            }
-        }
-
-        // 〇年〇期と一致するテキストを抜きたい
-        private void Period_Execute_Button(object sender, RoutedEventArgs e)
-        {
-            for (int i = 0; i < VM.Syllabus.Count; i++)
-            {
-                Page page = VM.Syllabus[i].GetPage(VM.PdfDocument, 0);
-
-                if (!page.Text.Contains(VM.PdfNameGroupingText)) continue;
-                double overLocation = page.GetWords().Where(w => w.Text.Contains(VM.PeriodOverText)).First().Letters[0].GlyphRectangle.Bottom;
-                double underLocation = page.GetWords().Where(w => w.Text.Contains(VM.PeriodUnderText)).First().Letters[0].GlyphRectangle.Top;
-                List<Word> words = new();
-                foreach (Word word in page.GetWords())
-                {
-                    if (word.Letters[0].Location.Y >= overLocation) continue;
-                    if (word.Letters[0].Location.Y <= underLocation) continue;
-                    words.Add(word);
-                }
-                VM.Syllabus[i].Period = words.OrderBy(w => w.Letters[0].Location.X).ToArray()[VM.PeriodIndexText].Text;
-            }
-
-        }
-
-        // 〇〇-〇〇-○○と一致するテキストを抜きたい
-        private void Code_Execute_Button(object sender, RoutedEventArgs e)
-        {
-            for (int i = 0; i < VM.Syllabus.Count; i++)
-            {
-                VM.Syllabus[i].Numbering.Clear();
-
-                Page page = VM.Syllabus[i].GetPage(VM.PdfDocument, 0);
-
-                if (!page.Text.Contains(VM.PdfNameGroupingText)) continue;
-                var hLocation = page.GetWords().Where(w => w.Text.Contains(VM.CodeUnderText)).First().Letters[0].GlyphRectangle.Top;
-
-                foreach (Word word in page.GetWords())
-                {
-                    if (word.Letters[0].Location.Y <= hLocation) continue;
-
-                    // 途中で改行が入るナンバリング対策
-                    if (VM.IsCodeJoin)
-                    {
-                        if (word.Text.Contains(VM.CodeAddText))
-                        {
-                            if (word.Text[^1] == VM.CodeJoinChar)
-                            {
-                                string text = word.Text;
-                                string[] temp = page.Text.Split(' ');
-                                for (int j = 0; j < temp.Length; j++)
-                                {
-                                    if (temp[j] == word.Text)
-                                    {
-                                        for(int k = j + 1; k < temp.Length; k++)
-                                        {
-                                            if (!string.IsNullOrWhiteSpace(temp[k]))
-                                            {
-                                                text += temp[k];
-                                                break;
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                                VM.Syllabus[i].Numbering.Add(text);
-                            }
-                            else
-                            {
-                                VM.Syllabus[i].Numbering.Add(word.Text);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (word.Text.Contains(VM.CodeAddText))
-                        {
-                            VM.Syllabus[i].Numbering.Add(word.Text);
-                        }
-                    }
-
-                    // 途中で改行が入るナンバリング対策
-                    if (VM.IsCodeContainRemove)
-                    {
-                        List<string> temp = new();
-                        foreach(string code in VM.Syllabus[i].Numbering)
-                        {
-                            foreach(string c in VM.Syllabus[i].Numbering)
-                            {
-                                if(!ReferenceEquals(code, c) && code.Contains(c))
-                                {
-                                    temp.Add(c);
-                                }
-                            }
-                        }
-                        foreach (string t in temp)
-                        {
-                            VM.Syllabus[i].Numbering.Remove(t);
-                        }
+                        KamokuList.SelectedItems.Add(KamokuList.Items[i]);
                     }
                 }
             }
-        }
-
-        static readonly string Output = "Output";
-
-        private void JSON_Output_Button(object sender, RoutedEventArgs e)
-        {
-            if (!Directory.Exists(Output))
-            {
-                Directory.CreateDirectory(Output);
-            }
-            using Stream stream = new FileStream(Path.Combine(Output, VM.PdfName + ".json"), FileMode.Create, FileAccess.Write);
-            JsonSerializer.Serialize(stream, VM.Syllabus, new JsonSerializerOptions()
-            {
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                WriteIndented = true
-            });
-        }
-
-        private void PDF_Output_Button(object sender, RoutedEventArgs e)
-        {
-            for (int i = 0; i < VM.Syllabus.Count; i++)
-            {
-                VM.Syllabus[i].OutputPDF(VM.PdfDocument, Output);
-            }
-        }
-
-        private void PDF_Unload(object sender, RoutedEventArgs e)
-        {
-            VM.Syllabus.Clear();
-            VM.PdfDocument.Dispose();
-            VM.PdfName = string.Empty;
         }
     }
 
@@ -243,6 +48,194 @@ namespace ClassTimetableToSyllabus
     {
         public VM()
         {
+            PdfLoadCommand = new(_ =>
+            {
+                OpenFileDialog fileDialog = new()
+                {
+                    Filter = "PDF|*.pdf"
+                };
+
+                if (fileDialog.ShowDialog() == true)
+                {
+                    Kamokus.Clear();
+                    PdfDocument = PdfDocument.Open(fileDialog.FileName);
+                    PdfName = Path.GetFileNameWithoutExtension(fileDialog.FileName);
+                }
+            }, _ => Kamokus.Count == 0);
+
+            PdfUnloadCommand = new(_ =>
+            {
+                Kamokus.Clear();
+                PdfDocument?.Dispose();
+                PdfDocument = null;
+                PdfName = string.Empty;
+            }, _ => PdfDocument is not null);
+
+            PdfSplitCommand = new(_ =>
+            {
+                Kamokus.Clear();
+                int cnt = 1;
+#pragma warning disable CS8602 // null 参照の可能性があるものの逆参照です。
+                foreach (Page page in PdfDocument.GetPages()) // CanExecuteで潰している
+                {
+                    foreach (Word word in page.GetWords())
+                    {
+                        if (word.Text.Contains(PdfGroupingText))
+                        {
+                            Kamokus.Add(new(PdfDocument) { StartPage = cnt });
+                            break;
+                        }
+                    }
+                    if (Syllabus.Count > 0)
+                    {
+                        Syllabus[^1].PageCount++;
+                    }
+
+                    cnt++;
+                }
+#pragma warning restore CS8602 // null 参照の可能性があるものの逆参照です。
+            }, _ => PdfDocument is not null);
+
+            // 科目名を抜きたい
+            NameExecuteCommand = new(_ =>
+            {
+                if (PdfDocument is null) return;
+
+                for (int i = 0; i < Syllabus.Count; i++)
+                {
+                    Syllabus[i].ClearName();
+
+                    Page page = Syllabus[i].GetPage(PdfDocument, 0);
+
+                    if (!page.Text.Contains(PdfNameGroupingText)) continue;
+                    var hLocation = page.GetWords().Where(w => w.Text.Contains(PdfNameGroupingText)).First().Letters[0].GlyphRectangle.Top;
+                    foreach (Word word in page.GetWords())
+                    {
+                        if (word.Letters[0].Location.Y <= hLocation) continue;
+
+                        // "講義科目名称："など'：'を含む要素の除去
+                        if (IsExecuteRemoveStr)
+                        {
+                            bool flag = false;
+                            foreach (char c in RemoveTargets)
+                            {
+                                flag |= word.Text.Contains(c);
+                            }
+                            if (flag) continue;
+                        }
+                        // 科目コードの除去
+                        if (IsExecuteRemoveDigits)
+                        {
+                            Regex regex = new($@"[0-9]{{{IntDigitsExclusion}}}");
+                            if (regex.IsMatch(word.Text)) continue;
+                        }
+                        Syllabus[i].AddName(word.Text);
+                    }
+                }
+            }, _ => Syllabus.Count != 0);
+
+            // 〇年〇期と一致するテキストを抜きたい
+            PeriodExecuteCommand = new(_ =>
+            {
+                if (PdfDocument is null) return;
+
+                for (int i = 0; i < Syllabus.Count; i++)
+                {
+                    Page page = Syllabus[i].GetPage(PdfDocument, 0);
+
+                    if (!page.Text.Contains(PdfNameGroupingText)) continue;
+                    double overLocation = page.GetWords().Where(w => w.Text.Contains(PeriodOverText)).First().Letters[0].GlyphRectangle.Bottom;
+                    double underLocation = page.GetWords().Where(w => w.Text.Contains(PeriodUnderText)).First().Letters[0].GlyphRectangle.Top;
+                    List<Word> words = new();
+                    foreach (Word word in page.GetWords())
+                    {
+                        if (word.Letters[0].Location.Y >= overLocation) continue;
+                        if (word.Letters[0].Location.Y <= underLocation) continue;
+                        words.Add(word);
+                    }
+                    Syllabus[i].Period = words.OrderBy(w => w.Letters[0].Location.X).ToArray()[PeriodIndexText].Text;
+                }
+            }, _ => Syllabus.Count != 0);
+
+            // 〇〇-〇〇-○○と一致するテキストを抜きたい
+            CodeExecuteCommand = new(_ =>
+            {
+                if (PdfDocument is null) return;
+
+                for (int i = 0; i < Syllabus.Count; i++)
+                {
+                    Syllabus[i].Numbering.Clear();
+
+                    Page page = Syllabus[i].GetPage(PdfDocument, 0);
+
+                    if (!page.Text.Contains(PdfNameGroupingText)) continue;
+                    var hLocation = page.GetWords().Where(w => w.Text.Contains(CodeUnderText)).First().Letters[0].GlyphRectangle.Top;
+
+                    foreach (Word word in page.GetWords())
+                    {
+                        if (word.Letters[0].Location.Y <= hLocation) continue;
+
+                        // 途中で改行が入るナンバリング対策
+                        if (IsCodeJoin)
+                        {
+                            if (word.Text.Contains(CodeAddText))
+                            {
+                                if (word.Text[^1] == CodeJoinChar)
+                                {
+                                    string text = word.Text;
+                                    string[] temp = page.Text.Split(' ');
+                                    for (int j = 0; j < temp.Length; j++)
+                                    {
+                                        if (temp[j] != word.Text) continue;
+
+                                        for (int k = j + 1; k < temp.Length; k++)
+                                        {
+                                            if (string.IsNullOrWhiteSpace(temp[k])) continue;
+
+                                            text += temp[k];
+                                            break;
+                                        }
+                                        break;
+                                    }
+                                    Syllabus[i].Numbering.Add(text);
+                                }
+                                else
+                                {
+                                    Syllabus[i].Numbering.Add(word.Text);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (word.Text.Contains(CodeAddText))
+                            {
+                                Syllabus[i].Numbering.Add(word.Text);
+                            }
+                        }
+
+                        // 途中で改行が入るナンバリング対策
+                        if (IsCodeContainRemove)
+                        {
+                            List<string> temp = new();
+                            foreach (string code in Syllabus[i].Numbering)
+                            {
+                                foreach (string c in Syllabus[i].Numbering)
+                                {
+                                    if (!ReferenceEquals(code, c) && code.Contains(c))
+                                    {
+                                        temp.Add(c);
+                                    }
+                                }
+                            }
+                            foreach (string t in temp)
+                            {
+                                Syllabus[i].Numbering.Remove(t);
+                            }
+                        }
+                    }
+                }
+            }, _ => Syllabus.Count != 0);
+
             NameJoinCommand = new(param =>
             {
                 if (param is IEnumerable<object> kamokus)
@@ -252,13 +245,58 @@ namespace ClassTimetableToSyllabus
                         kamoku.AddName(string.Join(' ', kamoku.NameList));
                     }
                 }
+            }, param =>
+            {
+                if (param is IEnumerable<object> kamokus)
+                {
+                    int cnt = 0;
+                    foreach (Kamoku kamoku in kamokus.Cast<Kamoku>())
+                    {
+                        cnt++;
+                    }
+                    return cnt != 0;
+                }
+                return false;
             });
+
+            JsonOutputCommand = new(_ =>
+            {
+                string path = Path.Combine("Output", PdfName);
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+                using Stream stream = new FileStream(Path.Combine(path, PdfName + ".json"), FileMode.Create, FileAccess.Write);
+                Kamokus.JsonOutput(stream, FileNameConf);
+
+            }, _ => 
+            {
+                if (Syllabus.Count == 0) return false;
+                return Syllabus.Any(x => x.NameList.Count == 0) is false;
+            });
+
+            PdfOutputCommand = new(_ =>
+            {
+                if (PdfDocument is null) return;
+
+                string path = Path.Combine("Output", PdfName);
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+                Kamokus.PdfOutput(PdfDocument, path, FileNameConf);
+            }, _ =>
+            {
+                if (Syllabus.Count == 0) return false;
+                return Syllabus.Any(x => x.NameList.Count == 0) is false;
+            });
+
+            FileNameConfList = Enum.GetValues<FileNameConfig>().Select(x => new Tuple<FileNameConfig, string>(x, x.GetItemName())).ToArray();
         }
         ~VM(){
-            pdfDocument?.Dispose();
+            PdfDocument?.Dispose();
         }
-        private PdfDocument? pdfDocument = null;
-        public PdfDocument PdfDocument { get => pdfDocument ?? throw new NullReferenceException(); set => pdfDocument = value; }
+        public PdfDocument? PdfDocument = null;
 
         private string pdfName = "ソースPDF";
         public string PdfName
@@ -407,7 +445,8 @@ namespace ClassTimetableToSyllabus
             }
         }
 
-        private bool isCodeContainRemove = true; 
+        private bool isCodeContainRemove = true;
+
         public bool IsCodeContainRemove
         {
             get => isCodeContainRemove; set
@@ -417,9 +456,34 @@ namespace ClassTimetableToSyllabus
             }
         }
 
+        private FileNameConfig fileNameConf = FileNameConfig.Name;
+        public FileNameConfig FileNameConf
+        {
+            get => fileNameConf; set
+            {
+                fileNameConf = value;
+                NotifyPropertyChanged(nameof(FileNameConf));
+            }
+        }
+
+        public IReadOnlyCollection<Tuple<FileNameConfig, string>> FileNameConfList { get; private init; }
+
+        public CommandBase PdfLoadCommand { get; private init; }
+        public CommandBase PdfUnloadCommand { get; private init; }
+
+        public CommandBase PdfSplitCommand { get; private init; }
+
+        public CommandBase NameExecuteCommand { get; private init; }
+        public CommandBase PeriodExecuteCommand { get; private init; }
+        public CommandBase CodeExecuteCommand { get; private init; }
+
+        public CommandBase JsonOutputCommand { get; private init; }
+        public CommandBase PdfOutputCommand { get; private init; }
+
         public CommandBase NameJoinCommand { get; private init; } 
 
-        public ObservableCollection<Kamoku> Syllabus { get; } = new();
+        public ReadOnlyObservableCollection<Kamoku> Syllabus => Kamokus.Kamokus;
+        private readonly Syllabus Kamokus = new();
 
         protected void NotifyPropertyChanged([CallerMemberName] string? propertyName = null) => PropertyChanged?.Invoke(this, new(propertyName));
 
@@ -430,15 +494,22 @@ namespace ClassTimetableToSyllabus
     public class CommandBase : ICommand
     {
         private readonly Action<object?> action;
+        private readonly Func<object?, bool> canExecute = (_) => true;
         public CommandBase(Action<object?> act) => action = act;
-
-        public event EventHandler? CanExecuteChanged;
-
-        public bool CanExecute(object? parameter) => true;
-
-        public void Execute(object? parameter)
+        public CommandBase(Action<object?> act, Func<object?, bool> canExe)
         {
-            action(parameter);
+            action = act;
+            canExecute = canExe;
         }
+
+        public event EventHandler? CanExecuteChanged
+        {
+            add => CommandManager.RequerySuggested += value;
+            remove => CommandManager.RequerySuggested -= value;
+        }
+
+        public bool CanExecute(object? parameter) => canExecute(parameter);
+
+        public void Execute(object? parameter) => action(parameter);
     }
 }
