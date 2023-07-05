@@ -1,4 +1,4 @@
-﻿<Window x:Class="ClassTimetableToSyllabus.MainWindow"
+<Window x:Class="ClassTimetableToSyllabus.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -15,12 +15,12 @@
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
             <TextBlock Text="{Binding PdfName}" Background="Black" Foreground="White"/>
-            <Button Click="PDF_Load">PDFを開く</Button>
+            <Button Command="{Binding PdfLoadCommand}">PDFを開く</Button>
             <DockPanel>
                 <TextBlock DockPanel.Dock="Right">でグループ化</TextBlock>
                 <TextBox Text="{Binding PdfGroupingText}"/>
             </DockPanel>
-            <Button Grid.Column="2" Click="PDF_Split_Button">実行</Button>
+            <Button Grid.Column="2" Command="{Binding PdfSplitCommand}">実行</Button>
 
             <TextBlock Background="Black" Foreground="White">ファイル・科目名</TextBlock>
             <Grid>
@@ -48,7 +48,7 @@
                 <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding IntDigitsExclusion}"/>
                 <TextBlock Grid.Column="2" Grid.Row="1">桁の整数を含む候補を除外</TextBlock>
             </Grid>
-            <Button Grid.Column="2" Click="Name_Execute_Button">実行</Button>
+            <Button Grid.Column="2" Command="{Binding NameExecuteCommand}">実行</Button>
 
             <TextBlock Background="Black" Foreground="White">開講期間</TextBlock>
             <Grid>
@@ -71,7 +71,7 @@
                 <TextBox Grid.Column="1" Grid.Row="2" Text="{Binding PeriodIndexText}"/>
                 <TextBlock  Grid.Column="2" Grid.Row="2">番目</TextBlock>
             </Grid>
-            <Button Click="Period_Execute_Button">実行</Button>
+            <Button Command="{Binding PeriodExecuteCommand}">実行</Button>
             
             <TextBlock Background="Black" Foreground="White">ナンバリング</TextBlock>
             <Grid>
@@ -99,12 +99,14 @@
                 <TextBlock Grid.Column="2">で終わる候補を次単語と結合</TextBlock>
             </Grid>
             <CheckBox IsChecked="{Binding IsCodeContainRemove}">他候補に含まれる候補を除外</CheckBox>
-            <Button Click="Code_Execute_Button">実行</Button>
+            <Button Command="{Binding CodeExecuteCommand}">実行</Button>
 
-            <Button Click="PDF_Output_Button">グループ毎にPDF出力</Button>
-            <Button Click="JSON_Output_Button">JSON出力</Button>
+            <TextBlock Background="Black" Foreground="White">出力</TextBlock>
+            <ComboBox ItemsSource="{Binding FileNameConfList}" SelectedValuePath="Item1" DisplayMemberPath="Item2" SelectedValue="{Binding FileNameConf}"/>
+            <Button Command="{Binding PdfOutputCommand}">グループ毎にPDF出力</Button>
+            <Button x:Name="JsonButton" Command="{Binding JsonOutputCommand}">JSON出力</Button>
 
-            <Button Click="PDF_Unload">PDFを閉じる</Button>
+            <Button Command="{Binding PdfUnloadCommand}">PDFを閉じる</Button>
         </StackPanel>
         <DockPanel Grid.Column="1">
             <Grid DockPanel.Dock="Top"> <!--疑似ヘッダー-->
@@ -144,6 +146,9 @@
             </ListBox>
         </DockPanel>
         <StackPanel Grid.Column="2">
+            <TextBlock>←の選択</TextBlock>
+            <!--IsEnabledが雑なので後で修正-->
+            <Button Click="Select_Alpha_Kamoku" IsEnabled="{Binding Path=IsEnabled, ElementName=JsonButton}">科目名がアルファベット</Button>
             <ListView ItemsSource="{Binding ElementName=KamokuList, Path=SelectedItems, Mode=OneWay}">
                 <ListView.ItemTemplate>
                     <DataTemplate>
